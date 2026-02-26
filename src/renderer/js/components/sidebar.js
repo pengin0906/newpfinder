@@ -1,6 +1,6 @@
 /**
  * sidebar.js — Left panel navigation
- * Favorites, devices, bookmarks — YAML theme driven colors.
+ * Event delegation (single attach) — no handler leak.
  */
 
 'use strict';
@@ -41,7 +41,6 @@ function renderSidebar() {
     <span class="brand-text">NewPfinder</span>
   </div>`;
 
-  // Favorites
   html += `<div class="sidebar-section"><span class="sidebar-section-title">\u304A\u6C17\u306B\u5165\u308A</span>`;
   for (const fav of FAVORITES) {
     const p = _resolvePath(fav.pathKey);
@@ -53,7 +52,6 @@ function renderSidebar() {
   }
   html += `</div>`;
 
-  // Devices
   html += `<div class="sidebar-section"><span class="sidebar-section-title">\u30C7\u30D0\u30A4\u30B9</span>`;
   html += `<div class="sidebar-item" data-path="/">
     <span class="sidebar-icon">\uD83D\uDCBF</span>
@@ -63,10 +61,12 @@ function renderSidebar() {
 
   sb.innerHTML = html;
 
-  // Click handlers
-  sb.querySelectorAll('.sidebar-item[data-path]').forEach(el => {
-    el.addEventListener('click', () => {
-      navigateTo(el.dataset.path);
+  // Event delegation — single attach, no leak
+  if (!sb._eventsAttached) {
+    sb._eventsAttached = true;
+    sb.addEventListener('click', (e) => {
+      const item = e.target.closest('.sidebar-item[data-path]');
+      if (item) navigateTo(item.dataset.path);
     });
-  });
+  }
 }

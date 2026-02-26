@@ -24,6 +24,7 @@ async function init() {
   // Render everything
   renderSidebar();
   renderToolbar();
+  renderTabBar();
   renderStatusBar();
 
   // Load directory
@@ -42,6 +43,10 @@ async function loadCurrentDir() {
   const tab = getActiveTab();
   if (!tab) return;
 
+  // Save scroll position
+  const fl = document.getElementById('file-list');
+  const scrollTop = fl ? fl.scrollTop : 0;
+
   const result = await ipc.readDir(tab.path, store.showHidden);
   if (!result.ok) {
     showToast('\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u3092\u8AAD\u3081\u307E\u305B\u3093: ' + (result.error || ''), 'error');
@@ -57,18 +62,21 @@ async function loadCurrentDir() {
     _currentFiles = _allFiles;
   }
 
-  // Start watching this dir
+  // Unwatch old, watch new
+  ipc.unwatchDir();
   ipc.watchDir(tab.path);
 
   renderFileList();
   renderStatusBar();
+
+  // Restore scroll position
+  if (fl) fl.scrollTop = scrollTop;
 }
 
 function navigateTo(dirPath) {
   const tab = getActiveTab();
   if (!tab) return;
 
-  // Trim forward history
   tab.history = tab.history.slice(0, tab.historyIndex + 1);
   tab.history.push(dirPath);
   tab.historyIndex = tab.history.length - 1;
@@ -78,6 +86,7 @@ function navigateTo(dirPath) {
   store.searchQuery = '';
 
   renderToolbar();
+  renderTabBar();
   renderSidebar();
   loadCurrentDir();
 }
@@ -91,6 +100,7 @@ function navigateBack() {
   store.focusedIndex = -1;
   store.searchQuery = '';
   renderToolbar();
+  renderTabBar();
   renderSidebar();
   loadCurrentDir();
 }
@@ -103,6 +113,7 @@ function navigateForward() {
   tab.selectedFiles = [];
   store.focusedIndex = -1;
   renderToolbar();
+  renderTabBar();
   renderSidebar();
   loadCurrentDir();
 }
@@ -116,7 +127,32 @@ function navigateUp() {
 
 function handleKeydown(e) {
   const tag = (e.target.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea') return;
+  if (tag === 'input' || tag === 'textarea') {
+    // Escape blurs search input
+    if (e.key === 'Escape') { e.target.blur(); e.preventDefault(); }
+    return;
+  }
+
+  // Ctrl+T — new tab
+  if (e.ctrlKey && e.key === 't') {
+    e.preventDefault();
+    const home = ipc.homeDir || '/home';
+    store.tabs.push(createTab(home));
+    store.activeTabIndex = store.tabs.length - 1;
+    renderTabBar(); renderToolbar(); renderSidebar(); loadCurrentDir();
+    return;
+  }
+
+  // Ctrl+W — close tab
+  if (e.ctrlKey && e.key === 'w') {
+    e.preventDefault();
+    if (store.tabs.length > 1) {
+      store.tabs.splice(store.activeTabIndex, 1);
+      if (store.activeTabIndex >= store.tabs.length) store.activeTabIndex = store.tabs.length - 1;
+      renderTabBar(); renderToolbar(); renderSidebar(); loadCurrentDir();
+    }
+    return;
+  }
 
   // Ctrl+C / Ctrl+X / Ctrl+V
   if (e.ctrlKey && e.key === 'c') {
@@ -135,7 +171,7 @@ function handleKeydown(e) {
     if (tab && tab.selectedFiles.length > 0) {
       store.clipboard = [...tab.selectedFiles];
       store.clipboardMode = 'cut';
-      renderFileList();
+      _updateSelectionDOM(tab);
       showToast(`${store.clipboard.length}\u30D5\u30A1\u30A4\u30EB\u5207\u308A\u53D6\u308A`, 'info', 1500);
     }
     return;
@@ -162,11 +198,11 @@ function handleKeydown(e) {
     return;
   }
 
-  // Ctrl+L — focus path bar
-  if (e.ctrlKey && e.key === 'l') {
+  // Ctrl+L / Ctrl+F — focus search
+  if (e.ctrlKey && (e.key === 'l' || e.key === 'f')) {
     e.preventDefault();
     const input = document.getElementById('search-input');
-    if (input) input.focus();
+    if (input) { input.focus(); input.select(); }
     return;
   }
 
@@ -218,7 +254,7 @@ function handleKeydown(e) {
     return;
   }
 
-  // Arrow keys for file navigation
+  // Arrow keys — DOM direct update (no renderFileList)
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     const files = getCurrentFiles();
@@ -230,9 +266,8 @@ function handleKeydown(e) {
     }
     const tab = getActiveTab();
     if (tab) tab.selectedFiles = [files[store.focusedIndex].path];
-    renderFileList();
+    _updateSelectionDOM(tab);
     renderStatusBar();
-    // Scroll into view
     const focused = document.querySelector('.fl-row.focused');
     if (focused) focused.scrollIntoView({ block: 'nearest' });
     return;
@@ -250,13 +285,13 @@ function handleKeydown(e) {
     return;
   }
 
-  // Ctrl+A — select all
+  // Ctrl+A — select all (DOM direct update)
   if (e.ctrlKey && e.key === 'a') {
     e.preventDefault();
     const tab = getActiveTab();
     if (tab) {
       tab.selectedFiles = getCurrentFiles().map(f => f.path);
-      renderFileList();
+      _updateSelectionDOM(tab);
       renderStatusBar();
     }
     return;
@@ -270,70 +305,57 @@ function applyThemeCSS(theme) {
   const root = document.documentElement;
   if (!theme) return;
 
-  // Sidebar
+  const set = (k, v) => { if (v !== undefined) root.style.setProperty(k, typeof v === 'number' ? v + 'px' : v); };
+
   if (theme.sidebar) {
-    root.style.setProperty('--sidebar-width', theme.sidebar.width + 'px');
-    root.style.setProperty('--sidebar-bg', theme.sidebar.background);
-    root.style.setProperty('--sidebar-brand-color', theme.sidebar.brandColor);
-    root.style.setProperty('--sidebar-text-color', theme.sidebar.textColor);
-    root.style.setProperty('--sidebar-active-color', theme.sidebar.activeColor);
-    root.style.setProperty('--sidebar-hover-bg', theme.sidebar.hoverBg);
-    root.style.setProperty('--sidebar-section-color', theme.sidebar.sectionColor);
+    set('--sidebar-width', theme.sidebar.width);
+    set('--sidebar-bg', theme.sidebar.background);
+    set('--sidebar-brand-color', theme.sidebar.brandColor);
+    set('--sidebar-text-color', theme.sidebar.textColor);
+    set('--sidebar-active-color', theme.sidebar.activeColor);
+    set('--sidebar-hover-bg', theme.sidebar.hoverBg);
+    set('--sidebar-section-color', theme.sidebar.sectionColor);
   }
-
-  // Content
   if (theme.content) {
-    root.style.setProperty('--content-bg', theme.content.background);
-    root.style.setProperty('--card-bg', theme.content.cardBg);
-    root.style.setProperty('--card-border', theme.content.cardBorder);
-    root.style.setProperty('--card-radius', theme.content.cardRadius + 'px');
+    set('--content-bg', theme.content.background);
+    set('--card-bg', theme.content.cardBg);
+    set('--card-border', theme.content.cardBorder);
+    set('--card-radius', theme.content.cardRadius);
   }
-
-  // Toolbar
   if (theme.toolbar) {
-    root.style.setProperty('--toolbar-height', theme.toolbar.height + 'px');
-    root.style.setProperty('--toolbar-bg', theme.toolbar.background);
-    root.style.setProperty('--toolbar-border', theme.toolbar.borderColor);
+    set('--toolbar-height', theme.toolbar.height);
+    set('--toolbar-bg', theme.toolbar.background);
+    set('--toolbar-border', theme.toolbar.borderColor);
   }
-
-  // Tab bar
   if (theme.tabBar) {
-    root.style.setProperty('--tab-height', theme.tabBar.height + 'px');
-    root.style.setProperty('--tab-active-bg', theme.tabBar.activeBg);
-    root.style.setProperty('--tab-inactive-bg', theme.tabBar.inactiveBg);
+    set('--tab-height', theme.tabBar.height);
+    set('--tab-active-bg', theme.tabBar.activeBg);
+    set('--tab-inactive-bg', theme.tabBar.inactiveBg);
   }
-
-  // Status bar
   if (theme.statusBar) {
-    root.style.setProperty('--statusbar-height', theme.statusBar.height + 'px');
-    root.style.setProperty('--statusbar-bg', theme.statusBar.background);
-    root.style.setProperty('--statusbar-text', theme.statusBar.textColor);
+    set('--statusbar-height', theme.statusBar.height);
+    set('--statusbar-bg', theme.statusBar.background);
+    set('--statusbar-text', theme.statusBar.textColor);
   }
-
-  // Accent
   if (theme.accent) {
-    root.style.setProperty('--accent-primary', theme.accent.primary);
-    root.style.setProperty('--accent-success', theme.accent.success);
-    root.style.setProperty('--accent-warning', theme.accent.warning);
-    root.style.setProperty('--accent-danger', theme.accent.danger);
-    root.style.setProperty('--accent-info', theme.accent.info);
+    set('--accent-primary', theme.accent.primary);
+    set('--accent-success', theme.accent.success);
+    set('--accent-warning', theme.accent.warning);
+    set('--accent-danger', theme.accent.danger);
+    set('--accent-info', theme.accent.info);
   }
-
-  // File list
   if (theme.fileList) {
-    root.style.setProperty('--fl-row-height', theme.fileList.rowHeight + 'px');
-    root.style.setProperty('--fl-icon-size', theme.fileList.iconSize + 'px');
-    root.style.setProperty('--fl-selected-bg', theme.fileList.selectedBg);
-    root.style.setProperty('--fl-selected-border', theme.fileList.selectedBorder);
-    root.style.setProperty('--fl-hover-bg', theme.fileList.hoverBg);
+    set('--fl-row-height', theme.fileList.rowHeight);
+    set('--fl-icon-size', theme.fileList.iconSize);
+    set('--fl-selected-bg', theme.fileList.selectedBg);
+    set('--fl-selected-border', theme.fileList.selectedBorder);
+    set('--fl-hover-bg', theme.fileList.hoverBg);
   }
-
-  // Font
   if (theme.font) {
-    root.style.setProperty('--font-family', theme.font.family);
-    root.style.setProperty('--font-size', theme.font.sizeBase + 'px');
-    root.style.setProperty('--font-size-sm', theme.font.sizeSm + 'px');
-    root.style.setProperty('--font-mono', theme.font.monoFamily);
+    set('--font-family', theme.font.family);
+    set('--font-size', theme.font.sizeBase);
+    set('--font-size-sm', theme.font.sizeSm);
+    set('--font-mono', theme.font.monoFamily);
   }
 }
 

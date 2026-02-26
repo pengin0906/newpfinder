@@ -109,12 +109,10 @@ function _handleClick(e) {
 
   const filePath = row.dataset.path;
   if (e.ctrlKey || e.metaKey) {
-    // Toggle selection
     const idx = tab.selectedFiles.indexOf(filePath);
     if (idx >= 0) tab.selectedFiles.splice(idx, 1);
     else tab.selectedFiles.push(filePath);
   } else if (e.shiftKey && tab.selectedFiles.length > 0) {
-    // Range select
     const lastPath = tab.selectedFiles[tab.selectedFiles.length - 1];
     const lastIdx = _currentFiles.findIndex(f => f.path === lastPath);
     const [start, end] = lastIdx < index ? [lastIdx, index] : [index, lastIdx];
@@ -123,8 +121,23 @@ function _handleClick(e) {
     tab.selectedFiles = [filePath];
   }
 
-  renderFileList();
+  // DOM direct update — NO innerHTML replacement (keeps dblclick working)
+  _updateSelectionDOM(tab);
   renderStatusBar();
+}
+
+/** Update selected/focused classes directly without replacing innerHTML */
+function _updateSelectionDOM(tab) {
+  const container = document.getElementById('file-list');
+  if (!container) return;
+  const selected = new Set(tab.selectedFiles);
+  const rows = container.querySelectorAll('.fl-row');
+  for (const row of rows) {
+    const p = row.dataset.path;
+    row.classList.toggle('selected', selected.has(p));
+    row.classList.toggle('focused', parseInt(row.dataset.index) === store.focusedIndex);
+    row.classList.toggle('cut', store.clipboardMode === 'cut' && store.clipboard.includes(p));
+  }
 }
 
 function _handleDblClick(e) {

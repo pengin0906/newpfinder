@@ -77,7 +77,9 @@ function _clipAction(mode) {
   if (!tab || tab.selectedFiles.length === 0) return;
   store.clipboard = [...tab.selectedFiles];
   store.clipboardMode = mode;
-  renderFileList();
+  _updateSelectionDOM(tab);
+  const label = mode === 'copy' ? '\u30B3\u30D4\u30FC' : '\u5207\u308A\u53D6\u308A';
+  showToast(`${store.clipboard.length}\u30D5\u30A1\u30A4\u30EB${label}`, 'info', 1500);
 }
 
 async function _pasteFiles() {
