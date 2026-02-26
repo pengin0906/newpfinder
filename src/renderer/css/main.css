@@ -72,10 +72,14 @@ body {
   color: var(--sidebar-text-color);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   transition: width 0.2s;
 }
+
+.sidebar-quick-access { flex-shrink: 0; overflow-y: auto; max-height: 40%; }
+.sidebar-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 12px; flex-shrink: 0; }
+.sidebar-tree-title { flex-shrink: 0; padding: 6px 16px 2px !important; }
+.sidebar-tree { flex: 1; overflow-y: auto; overflow-x: hidden; }
 
 .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .brand-icon { width: 32px; height: 32px; background: var(--sidebar-brand-color); color: #0d1b2a; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
@@ -265,12 +269,22 @@ body {
 .toast-error { background: var(--accent-danger); }
 .toast-success { background: var(--accent-success); }
 
+/* === Tree View === */
+.tree-node-label { display: flex; align-items: center; gap: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; font-size: var(--font-size-sm); color: var(--sidebar-text-color); border-left: 2px solid transparent; transition: background 0.1s; }
+.tree-node-label:hover { background: var(--sidebar-hover-bg); }
+.tree-node-label.active { color: var(--sidebar-active-color); border-left-color: var(--sidebar-active-color); background: rgba(79,195,247,0.1); font-weight: 600; }
+.tree-toggle { width: 14px; height: 14px; font-size: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; color: rgba(255,255,255,0.4); border-radius: 2px; }
+.tree-toggle:hover { color: var(--sidebar-active-color); background: rgba(255,255,255,0.08); }
+.tree-toggle-spacer { width: 14px; flex-shrink: 0; }
+.tree-icon { font-size: 13px; flex-shrink: 0; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; }
+
 /* === Scrollbar === */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
-#sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
+#sidebar ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
 
 /* === Dark Theme === */
 :root.dark {

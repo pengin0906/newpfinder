@@ -32,11 +32,18 @@ async function init() {
   renderStatusBar();
   renderPreviewPanel();
 
+  // Expand tree to initial directory
+  await expandTreeToPath(home);
+
   // Load directory
   await loadCurrentDir();
 
   // Watch for filesystem changes
-  ipc.onFsChanged(() => loadCurrentDir());
+  ipc.onFsChanged(() => {
+    const tab = getActiveTab();
+    if (tab) invalidateTreeNode(tab.path);
+    loadCurrentDir();
+  });
 
   // Keyboard shortcuts
   document.addEventListener('keydown', handleKeydown);
@@ -91,6 +98,7 @@ function navigateTo(dirPath) {
   renderToolbar();
   renderTabBar();
   renderSidebar();
+  expandTreeToPath(dirPath);
   loadCurrentDir();
 }
 
@@ -103,6 +111,7 @@ function navigateBack() {
   store.focusedIndex = -1;
   store.searchQuery = '';
   renderToolbar(); renderTabBar(); renderSidebar();
+  expandTreeToPath(tab.path);
   loadCurrentDir();
 }
 
@@ -115,6 +124,7 @@ function navigateForward() {
   store.focusedIndex = -1;
   store.searchQuery = '';
   renderToolbar(); renderTabBar(); renderSidebar();
+  expandTreeToPath(tab.path);
   loadCurrentDir();
 }
 
