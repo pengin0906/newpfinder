@@ -76,10 +76,13 @@ body {
   transition: width 0.2s;
 }
 
-.sidebar-quick-access { flex-shrink: 0; overflow-y: auto; max-height: 40%; }
-.sidebar-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 4px 12px; flex-shrink: 0; }
-.sidebar-tree-title { flex-shrink: 0; padding: 6px 16px 2px !important; }
-.sidebar-tree { flex: 1; overflow-y: auto; overflow-x: hidden; }
+/* Tree takes the main area, quick-access sits at the bottom */
+.sidebar-tree { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 0; }
+.sidebar-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 2px 12px; flex-shrink: 0; }
+.sidebar-quick-access { flex-shrink: 0; overflow-y: auto; max-height: 35%; padding-bottom: 4px; }
+.sidebar-qa-toggle { cursor: pointer; user-select: none; }
+.sidebar-qa-toggle:hover { color: var(--sidebar-active-color); }
+.qa-arrow { font-size: 10px; }
 
 .sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .brand-icon { width: 32px; height: 32px; background: var(--sidebar-brand-color); color: #0d1b2a; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }

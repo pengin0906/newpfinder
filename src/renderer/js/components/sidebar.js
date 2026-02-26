@@ -1,5 +1,5 @@
 /**
- * sidebar.js — Left panel: Quick Access (favorites + bookmarks) + Directory Tree
+ * sidebar.js — Left panel: Directory Tree (top) + Quick Access (bottom)
  * Windows Explorer-style layout. Event delegation + D&D bookmark support.
  */
 
@@ -40,42 +40,42 @@ function renderSidebar() {
     <span class="brand-text">NewPfinder</span>
   </div>`;
 
-  // Quick Access section
-  html += `<div class="sidebar-quick-access">`;
-  html += `<div class="sidebar-section"><span class="sidebar-section-title">クイックアクセス</span>`;
-  for (const fav of FAVORITES) {
-    const p = _resolvePath(fav.pathKey);
-    const active = currentPath === p ? ' active' : '';
-    html += `<div class="sidebar-item${active}" data-path="${escapeHtml(p)}">
-      <span class="sidebar-icon">${fav.icon}</span>
-      <span class="sidebar-label">${fav.name}</span>
-    </div>`;
-  }
-  html += `</div>`;
+  // === Tree section (main area) ===
+  html += `<div id="tree-view" class="sidebar-tree"></div>`;
 
-  // Bookmarks
-  if (store.bookmarks && store.bookmarks.length > 0) {
-    html += `<div class="sidebar-section"><span class="sidebar-section-title">ブックマーク</span>`;
-    for (const bm of store.bookmarks) {
-      const active = currentPath === bm.path ? ' active' : '';
-      html += `<div class="sidebar-item${active}" data-path="${escapeHtml(bm.path)}" data-bookmark="true">
-        <span class="sidebar-icon">📌</span>
-        <span class="sidebar-label">${escapeHtml(bm.name)}</span>
-        <span class="sidebar-bm-remove" data-bm-remove="${escapeHtml(bm.path)}">×</span>
-      </div>`;
-    }
-    html += `</div>`;
-  }
-  html += `</div>`;
-
-  // Divider
+  // === Divider ===
   html += `<div class="sidebar-divider"></div>`;
 
-  // Tree section header
-  html += `<div class="sidebar-section-title sidebar-tree-title">フォルダー</div>`;
+  // === Quick Access section (bottom, collapsible) ===
+  const qaCollapsed = store._qaCollapsed || false;
+  html += `<div class="sidebar-quick-access">`;
+  html += `<div class="sidebar-section-title sidebar-qa-toggle" data-qa-toggle="true">`;
+  html += `<span class="qa-arrow">${qaCollapsed ? '▸' : '▾'}</span> クイックアクセス</div>`;
 
-  // Tree view container (rendered separately by tree-view.js)
-  html += `<div id="tree-view" class="sidebar-tree"></div>`;
+  if (!qaCollapsed) {
+    for (const fav of FAVORITES) {
+      const p = _resolvePath(fav.pathKey);
+      const active = currentPath === p ? ' active' : '';
+      html += `<div class="sidebar-item${active}" data-path="${escapeHtml(p)}">
+        <span class="sidebar-icon">${fav.icon}</span>
+        <span class="sidebar-label">${fav.name}</span>
+      </div>`;
+    }
+
+    // Bookmarks
+    if (store.bookmarks && store.bookmarks.length > 0) {
+      html += `<div class="sidebar-section-title">ブックマーク</div>`;
+      for (const bm of store.bookmarks) {
+        const active = currentPath === bm.path ? ' active' : '';
+        html += `<div class="sidebar-item${active}" data-path="${escapeHtml(bm.path)}" data-bookmark="true">
+          <span class="sidebar-icon">📌</span>
+          <span class="sidebar-label">${escapeHtml(bm.name)}</span>
+          <span class="sidebar-bm-remove" data-bm-remove="${escapeHtml(bm.path)}">×</span>
+        </div>`;
+      }
+    }
+  }
+  html += `</div>`;
 
   sb.innerHTML = html;
 
@@ -88,6 +88,14 @@ function renderSidebar() {
     sb.addEventListener('click', (e) => {
       // Tree view handles its own clicks via #tree-view delegation
       if (e.target.closest('#tree-view')) return;
+
+      // Quick access collapse toggle
+      const qaToggle = e.target.closest('[data-qa-toggle]');
+      if (qaToggle) {
+        store._qaCollapsed = !store._qaCollapsed;
+        renderSidebar();
+        return;
+      }
 
       const rmBtn = e.target.closest('[data-bm-remove]');
       if (rmBtn) {

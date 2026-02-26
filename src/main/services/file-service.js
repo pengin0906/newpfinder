@@ -246,10 +246,15 @@ async function readTextFile(filePath, maxLines = 60) {
 
 /**
  * Open a file with system default application.
+ * Uses spawn+detach so the child process is fully independent.
  */
 function openFile(filePath) {
-  const { shell } = require('electron');
-  shell.openPath(filePath);
+  const { spawn } = require('child_process');
+  const child = spawn('xdg-open', [filePath], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
   return { ok: true };
 }
 
