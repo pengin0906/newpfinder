@@ -7,6 +7,8 @@
 const { ipcMain, shell } = require('electron');
 const fileService = require('../services/file-service');
 const gitService = require('../services/git-service');
+const archiveService = require('../services/archive-service');
+const bookmarkService = require('../services/bookmark-service');
 const idService = require('../services/id-service');
 const config = require('../services/config-service');
 
@@ -42,10 +44,26 @@ function register(mainWindow, watcher) {
   ipcMain.handle('getDiskUsage', (_e, dirPath) =>
     fileService.getDiskUsage(dirPath));
 
+  ipcMain.handle('readTextFile', (_e, filePath, maxLines) =>
+    fileService.readTextFile(filePath, maxLines));
+
   ipcMain.handle('openExternal', (_e, url) => {
     shell.openExternal(url);
     return { ok: true };
   });
+
+  // --- Archive ---
+  ipcMain.handle('listArchive', (_e, archivePath) =>
+    archiveService.listArchive(archivePath));
+
+  ipcMain.handle('extractArchive', (_e, archivePath, destDir) =>
+    archiveService.extractArchive(archivePath, destDir));
+
+  ipcMain.handle('createArchive', (_e, srcPaths, destPath, format) =>
+    archiveService.createArchive(srcPaths, destPath, format));
+
+  ipcMain.handle('isArchive', (_e, filePath) =>
+    ({ ok: true, data: archiveService.isArchive(filePath) }));
 
   // --- Git ---
   ipcMain.handle('getGitInfo', (_e, dirPath) =>
@@ -60,6 +78,19 @@ function register(mainWindow, watcher) {
     ok: true,
     data: { tracked: idService.size() },
   }));
+
+  // --- Bookmarks ---
+  ipcMain.handle('getBookmarks', () =>
+    ({ ok: true, data: bookmarkService.getAll() }));
+
+  ipcMain.handle('addBookmark', (_e, dirPath, name) =>
+    ({ ok: true, data: bookmarkService.add(dirPath, name) }));
+
+  ipcMain.handle('removeBookmark', (_e, dirPath) =>
+    ({ ok: true, data: bookmarkService.remove(dirPath) }));
+
+  ipcMain.handle('renameBookmark', (_e, dirPath, newName) =>
+    ({ ok: true, data: bookmarkService.rename(dirPath, newName) }));
 
   // --- Watcher control ---
   ipcMain.handle('watchDir', (_e, dirPath) => {

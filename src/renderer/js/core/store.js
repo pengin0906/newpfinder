@@ -11,10 +11,12 @@ const store = {
   activeTabIndex: 0,
 
   // View state
-  viewMode: 'detail',        // 'detail' | 'grid' | 'column'
+  viewMode: 'detail',        // 'detail' | 'grid'
   showHidden: false,
   showSidebar: true,
   showPreview: false,
+  showDualPane: false,
+  darkTheme: false,
 
   // Search
   searchQuery: '',
@@ -25,6 +27,12 @@ const store = {
 
   // Selection
   focusedIndex: -1,
+
+  // Preview
+  previewFile: null,           // currently previewed file entry
+
+  // Bookmarks
+  bookmarks: [],
 
   // Theme (loaded from YAML via IPC)
   theme: {},

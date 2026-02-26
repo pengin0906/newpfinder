@@ -1,5 +1,5 @@
 /**
- * file-list.js — Detail view with pforce-longid category colors
+ * file-list.js — Detail view + inline rename + drag & drop
  */
 
 'use strict';
@@ -10,6 +10,9 @@ let _currentFiles = [];
 function getCurrentFiles() { return _currentFiles; }
 
 function renderFileList() {
+  // Dispatch to grid view if needed
+  if (store.viewMode === 'grid') { renderFileGrid(); return; }
+
   const container = document.getElementById('file-list');
   if (!container) return;
 
@@ -19,7 +22,6 @@ function renderFileList() {
   const files = _currentFiles;
   const selected = new Set(tab.selectedFiles);
 
-  // Column header
   let html = `<div class="fl-header">
     <div class="fl-col fl-col-icon"></div>
     <div class="fl-col fl-col-name fl-sortable" data-sort="name">\u540D\u524D${_sortArrow('name', tab)}</div>
@@ -29,25 +31,20 @@ function renderFileList() {
     <div class="fl-col fl-col-id">ID</div>
   </div>`;
 
-  // Rows
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     const sel = selected.has(f.path) ? ' selected' : '';
     const focused = i === store.focusedIndex ? ' focused' : '';
     const cut = (store.clipboardMode === 'cut' && store.clipboard.includes(f.path)) ? ' cut' : '';
     const gitClass = _gitClass(f);
-
-    // Category badge color from YAML theme
     const catColor = f.categoryColor || '#757575';
     const catBadge = f.isDirectory ? '' :
       `<span class="cat-badge" style="background:${catColor}">${escapeHtml(f.category || 'other')}</span>`;
-
-    // Short ID (last 8 hex chars)
     const shortId = f.id ? f.id.slice(-8) : '';
 
-    html += `<div class="fl-row${sel}${focused}${cut}${gitClass}" data-index="${i}" data-path="${escapeHtml(f.path)}">
+    html += `<div class="fl-row${sel}${focused}${cut}${gitClass}" data-index="${i}" data-path="${escapeHtml(f.path)}" draggable="true">
       <div class="fl-col fl-col-icon">${getFileIcon(f)}</div>
-      <div class="fl-col fl-col-name">${escapeHtml(f.name)}</div>
+      <div class="fl-col fl-col-name" data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
       <div class="fl-col fl-col-cat">${catBadge}</div>
       <div class="fl-col fl-col-size">${f.isDirectory ? '--' : formatSize(f.size)}</div>
       <div class="fl-col fl-col-date">${formatDate(f.modified)}</div>
@@ -61,12 +58,17 @@ function renderFileList() {
 
   container.innerHTML = html;
 
-  // Event delegation (attach once)
   if (!container._eventsAttached) {
     container._eventsAttached = true;
     container.addEventListener('click', _handleClick);
     container.addEventListener('dblclick', _handleDblClick);
     container.addEventListener('contextmenu', _handleContextMenu);
+
+    // Drag & drop
+    container.addEventListener('dragstart', _handleDragStart);
+    container.addEventListener('dragover', _handleDragOver);
+    container.addEventListener('dragleave', _handleDragLeave);
+    container.addEventListener('drop', _handleDrop);
   }
 }
 
@@ -82,17 +84,14 @@ function _gitClass(f) {
 }
 
 function _handleClick(e) {
-  // Sort header click
+  if (store.viewMode === 'grid') return; // handled by file-grid.js
+
   const sortCol = e.target.closest('.fl-sortable');
   if (sortCol) {
     const tab = getActiveTab();
     const col = sortCol.dataset.sort;
-    if (tab.sortBy === col) {
-      tab.sortAsc = !tab.sortAsc;
-    } else {
-      tab.sortBy = col;
-      tab.sortAsc = true;
-    }
+    if (tab.sortBy === col) tab.sortAsc = !tab.sortAsc;
+    else { tab.sortBy = col; tab.sortAsc = true; }
     _currentFiles = sortFiles(_allFiles, tab.sortBy, tab.sortAsc);
     renderFileList();
     return;
@@ -106,8 +105,8 @@ function _handleClick(e) {
   if (!tab) return;
 
   store.focusedIndex = index;
-
   const filePath = row.dataset.path;
+
   if (e.ctrlKey || e.metaKey) {
     const idx = tab.selectedFiles.indexOf(filePath);
     if (idx >= 0) tab.selectedFiles.splice(idx, 1);
@@ -121,9 +120,9 @@ function _handleClick(e) {
     tab.selectedFiles = [filePath];
   }
 
-  // DOM direct update — NO innerHTML replacement (keeps dblclick working)
   _updateSelectionDOM(tab);
   renderStatusBar();
+  updatePreviewIfNeeded();
 }
 
 /** Update selected/focused classes directly without replacing innerHTML */
@@ -131,7 +130,7 @@ function _updateSelectionDOM(tab) {
   const container = document.getElementById('file-list');
   if (!container) return;
   const selected = new Set(tab.selectedFiles);
-  const rows = container.querySelectorAll('.fl-row');
+  const rows = container.querySelectorAll('.fl-row, .fg-item');
   for (const row of rows) {
     const p = row.dataset.path;
     row.classList.toggle('selected', selected.has(p));
@@ -141,22 +140,27 @@ function _updateSelectionDOM(tab) {
 }
 
 function _handleDblClick(e) {
+  if (store.viewMode === 'grid') return;
   const row = e.target.closest('.fl-row');
   if (!row) return;
   const index = parseInt(row.dataset.index);
   const entry = _currentFiles[index];
   if (!entry) return;
 
-  if (entry.isDirectory) {
-    navigateTo(entry.path);
-  } else {
-    ipc.openFile(entry.path);
+  // Archive browsing on double-click
+  const archiveExts = ['.zip', '.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz'];
+  if (!entry.isDirectory && archiveExts.some(ext => entry.path.toLowerCase().endsWith(ext))) {
+    _browseArchive(entry);
+    return;
   }
+
+  if (entry.isDirectory) navigateTo(entry.path);
+  else ipc.openFile(entry.path);
 }
 
 function _handleContextMenu(e) {
   e.preventDefault();
-  const row = e.target.closest('.fl-row');
+  const row = e.target.closest('.fl-row, .fg-item');
   if (row) {
     const index = parseInt(row.dataset.index);
     const entry = _currentFiles[index];
@@ -164,12 +168,141 @@ function _handleContextMenu(e) {
     if (tab && !tab.selectedFiles.includes(entry.path)) {
       tab.selectedFiles = [entry.path];
       store.focusedIndex = index;
-      renderFileList();
+      _updateSelectionDOM(tab);
     }
     showContextMenu(e.clientX, e.clientY, entry);
   } else {
     showContextMenu(e.clientX, e.clientY, null);
   }
+}
+
+// --- Drag & Drop ---
+
+function _handleDragStart(e) {
+  const row = e.target.closest('.fl-row, .fg-item');
+  if (!row) return;
+  const tab = getActiveTab();
+  if (!tab) return;
+
+  const filePath = row.dataset.path;
+  if (!tab.selectedFiles.includes(filePath)) {
+    tab.selectedFiles = [filePath];
+    store.focusedIndex = parseInt(row.dataset.index);
+    _updateSelectionDOM(tab);
+  }
+
+  const paths = JSON.stringify(tab.selectedFiles);
+  e.dataTransfer.setData('application/x-newpfinder-paths', paths);
+  e.dataTransfer.effectAllowed = 'copyMove';
+
+  // Visual feedback
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.textContent = tab.selectedFiles.length > 1
+    ? `${tab.selectedFiles.length} \u30D5\u30A1\u30A4\u30EB`
+    : filePath.split('/').pop();
+  document.body.appendChild(ghost);
+  e.dataTransfer.setDragImage(ghost, 0, 0);
+  setTimeout(() => ghost.remove(), 0);
+}
+
+function _handleDragOver(e) {
+  e.preventDefault();
+  const row = e.target.closest('.fl-row, .fg-item');
+  if (row) {
+    const idx = parseInt(row.dataset.index);
+    const entry = _currentFiles[idx];
+    if (entry && entry.isDirectory) {
+      row.classList.add('drop-target');
+      e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
+      return;
+    }
+  }
+  e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
+}
+
+function _handleDragLeave(e) {
+  const row = e.target.closest('.fl-row, .fg-item');
+  if (row) row.classList.remove('drop-target');
+}
+
+async function _handleDrop(e) {
+  e.preventDefault();
+  document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+
+  const raw = e.dataTransfer.getData('application/x-newpfinder-paths');
+  if (!raw) return;
+
+  const paths = JSON.parse(raw);
+  const row = e.target.closest('.fl-row, .fg-item');
+  let destDir;
+
+  if (row) {
+    const idx = parseInt(row.dataset.index);
+    const entry = _currentFiles[idx];
+    if (entry && entry.isDirectory) destDir = entry.path;
+    else return; // can't drop on a file
+  } else {
+    const tab = getActiveTab();
+    destDir = tab ? tab.path : null;
+  }
+
+  if (!destDir) return;
+
+  const fn = e.ctrlKey ? ipc.copyFiles : ipc.moveFiles;
+  await fn(paths, destDir);
+  if (!e.ctrlKey) { store.clipboard = []; store.clipboardMode = null; }
+  loadCurrentDir();
+}
+
+// --- Inline Rename ---
+
+function startInlineRename(entry) {
+  const container = document.getElementById('file-list');
+  if (!container) return;
+
+  const index = _currentFiles.findIndex(f => f.path === entry.path);
+  if (index < 0) return;
+
+  const row = container.querySelector(`.fl-row[data-index="${index}"], .fg-item[data-index="${index}"]`);
+  if (!row) return;
+
+  const nameEl = row.querySelector('.fl-col-name, .fg-name');
+  if (!nameEl) return;
+
+  const originalName = entry.name;
+  const ext = entry.ext || '';
+  const nameWithoutExt = ext ? originalName.slice(0, -ext.length) : originalName;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'inline-rename-input';
+  input.value = originalName;
+
+  nameEl.textContent = '';
+  nameEl.appendChild(input);
+  input.focus();
+
+  // Select name part only (not extension)
+  input.setSelectionRange(0, nameWithoutExt.length);
+
+  const commit = async () => {
+    const newName = input.value.trim();
+    if (!newName || newName === originalName) {
+      nameEl.textContent = originalName;
+      return;
+    }
+    const result = await ipc.renameFile(entry.path, newName);
+    if (result.ok) loadCurrentDir();
+    else { nameEl.textContent = originalName; showToast('\u30EA\u30CD\u30FC\u30E0\u5931\u6557', 'error'); }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { e.preventDefault(); nameEl.textContent = originalName; }
+    e.stopPropagation(); // prevent app keydown handler
+  });
+  input.addEventListener('blur', commit, { once: true });
 }
 
 function applyFilter() {

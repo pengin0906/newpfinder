@@ -218,6 +218,33 @@ async function createFile(dirPath, name) {
 }
 
 /**
+ * Read first N lines of a text file (for preview).
+ */
+async function readTextFile(filePath, maxLines = 60) {
+  try {
+    const buf = await fsp.readFile(filePath);
+    // Binary check: if too many non-text bytes, bail
+    let nullCount = 0;
+    const check = Math.min(buf.length, 8192);
+    for (let i = 0; i < check; i++) { if (buf[i] === 0) nullCount++; }
+    if (nullCount > check * 0.1) return { ok: false, error: 'Binary file' };
+
+    const content = buf.toString('utf8');
+    const lines = content.split('\n');
+    return {
+      ok: true,
+      data: {
+        content: lines.slice(0, maxLines).join('\n'),
+        totalLines: lines.length,
+        truncated: lines.length > maxLines,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
  * Open a file with system default application.
  */
 function openFile(filePath) {
@@ -266,5 +293,6 @@ module.exports = {
   createFolder,
   createFile,
   openFile,
+  readTextFile,
   getDiskUsage,
 };

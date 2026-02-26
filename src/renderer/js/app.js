@@ -1,12 +1,12 @@
 /**
  * app.js — Application entry point
- * Init, navigation, keyboard shortcuts, filesystem watcher.
+ * Init, navigation, keyboard shortcuts, view mode, theme, dual pane.
  */
 
 'use strict';
 
 async function init() {
-  // Load theme from YAML config via IPC
+  // Load theme
   const themeResult = await ipc.getTheme();
   if (themeResult.ok) {
     store.theme = themeResult.data;
@@ -17,6 +17,10 @@ async function init() {
   const catResult = await ipc.getCategories();
   if (catResult.ok) store.categories = catResult.data;
 
+  // Load bookmarks
+  const bmResult = await ipc.getBookmarks();
+  if (bmResult.ok) store.bookmarks = bmResult.data;
+
   // Create initial tab
   const home = ipc.homeDir || '/home';
   store.tabs.push(createTab(home));
@@ -26,6 +30,7 @@ async function init() {
   renderToolbar();
   renderTabBar();
   renderStatusBar();
+  renderPreviewPanel();
 
   // Load directory
   await loadCurrentDir();
@@ -43,7 +48,6 @@ async function loadCurrentDir() {
   const tab = getActiveTab();
   if (!tab) return;
 
-  // Save scroll position
   const fl = document.getElementById('file-list');
   const scrollTop = fl ? fl.scrollTop : 0;
 
@@ -62,14 +66,13 @@ async function loadCurrentDir() {
     _currentFiles = _allFiles;
   }
 
-  // Unwatch old, watch new
   ipc.unwatchDir();
   ipc.watchDir(tab.path);
 
   renderFileList();
   renderStatusBar();
+  updatePreviewIfNeeded();
 
-  // Restore scroll position
   if (fl) fl.scrollTop = scrollTop;
 }
 
@@ -99,9 +102,7 @@ function navigateBack() {
   tab.selectedFiles = [];
   store.focusedIndex = -1;
   store.searchQuery = '';
-  renderToolbar();
-  renderTabBar();
-  renderSidebar();
+  renderToolbar(); renderTabBar(); renderSidebar();
   loadCurrentDir();
 }
 
@@ -112,9 +113,8 @@ function navigateForward() {
   tab.path = tab.history[tab.historyIndex];
   tab.selectedFiles = [];
   store.focusedIndex = -1;
-  renderToolbar();
-  renderTabBar();
-  renderSidebar();
+  store.searchQuery = '';
+  renderToolbar(); renderTabBar(); renderSidebar();
   loadCurrentDir();
 }
 
@@ -125,10 +125,108 @@ function navigateUp() {
   if (parent !== tab.path) navigateTo(parent);
 }
 
+// --- View mode ---
+
+function toggleViewMode() {
+  store.viewMode = store.viewMode === 'detail' ? 'grid' : 'detail';
+  renderToolbar();
+  renderFileList();
+}
+
+// --- Dark theme ---
+
+function toggleDarkTheme() {
+  store.darkTheme = !store.darkTheme;
+  document.documentElement.classList.toggle('dark', store.darkTheme);
+  renderToolbar();
+}
+
+// --- Dual pane ---
+
+function renderDualPane() {
+  const dp = document.getElementById('dual-pane');
+  if (!dp) return;
+
+  if (!store.showDualPane) {
+    dp.style.display = 'none';
+    return;
+  }
+  dp.style.display = 'flex';
+
+  if (!store.dualPanePath) {
+    const tab = getActiveTab();
+    store.dualPanePath = tab ? tab.path : ipc.homeDir;
+  }
+
+  _loadDualPane();
+}
+
+async function _loadDualPane() {
+  const dp = document.getElementById('dual-pane');
+  if (!dp || !store.showDualPane) return;
+
+  const result = await ipc.readDir(store.dualPanePath, store.showHidden);
+  if (!result.ok) return;
+
+  const files = sortFiles(result.data || [], 'name', true);
+  const pathParts = store.dualPanePath.split('/').filter(Boolean);
+  const breadcrumb = '/' + pathParts.join('/');
+
+  let html = `<div class="dp-header">
+    <span class="dp-path" title="${escapeHtml(breadcrumb)}">${escapeHtml(breadcrumb)}</span>
+  </div>`;
+
+  html += '<div class="dp-list">';
+  for (const f of files) {
+    html += `<div class="dp-row" data-path="${escapeHtml(f.path)}" data-is-dir="${f.isDirectory}">
+      <span class="dp-icon">${getFileIcon(f)}</span>
+      <span class="dp-name">${escapeHtml(f.name)}</span>
+      <span class="dp-size">${f.isDirectory ? '' : formatSize(f.size)}</span>
+    </div>`;
+  }
+  html += '</div>';
+
+  dp.innerHTML = html;
+
+  if (!dp._eventsAttached) {
+    dp._eventsAttached = true;
+    dp.addEventListener('dblclick', (e) => {
+      const row = e.target.closest('.dp-row');
+      if (!row) return;
+      if (row.dataset.isDir === 'true') {
+        store.dualPanePath = row.dataset.path;
+        _loadDualPane();
+      } else {
+        ipc.openFile(row.dataset.path);
+      }
+    });
+
+    // Drop zone
+    dp.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
+      dp.classList.add('drop-target');
+    });
+    dp.addEventListener('dragleave', () => dp.classList.remove('drop-target'));
+    dp.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dp.classList.remove('drop-target');
+      const raw = e.dataTransfer.getData('application/x-newpfinder-paths');
+      if (!raw) return;
+      const paths = JSON.parse(raw);
+      const fn = e.ctrlKey ? ipc.copyFiles : ipc.moveFiles;
+      await fn(paths, store.dualPanePath);
+      loadCurrentDir();
+      _loadDualPane();
+    });
+  }
+}
+
+// --- Keyboard shortcuts ---
+
 function handleKeydown(e) {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') {
-    // Escape blurs search input
     if (e.key === 'Escape') { e.target.blur(); e.preventDefault(); }
     return;
   }
@@ -139,6 +237,7 @@ function handleKeydown(e) {
     const home = ipc.homeDir || '/home';
     store.tabs.push(createTab(home));
     store.activeTabIndex = store.tabs.length - 1;
+    store.focusedIndex = -1; store.searchQuery = '';
     renderTabBar(); renderToolbar(); renderSidebar(); loadCurrentDir();
     return;
   }
@@ -149,6 +248,32 @@ function handleKeydown(e) {
     if (store.tabs.length > 1) {
       store.tabs.splice(store.activeTabIndex, 1);
       if (store.activeTabIndex >= store.tabs.length) store.activeTabIndex = store.tabs.length - 1;
+      store.focusedIndex = -1;
+      renderTabBar(); renderToolbar(); renderSidebar(); loadCurrentDir();
+    }
+    return;
+  }
+
+  // Ctrl+Tab — next tab
+  if (e.ctrlKey && e.key === 'Tab') {
+    e.preventDefault();
+    if (store.tabs.length > 1) {
+      store.activeTabIndex = e.shiftKey
+        ? (store.activeTabIndex - 1 + store.tabs.length) % store.tabs.length
+        : (store.activeTabIndex + 1) % store.tabs.length;
+      store.focusedIndex = -1; store.searchQuery = '';
+      renderTabBar(); renderToolbar(); renderSidebar(); loadCurrentDir();
+    }
+    return;
+  }
+
+  // Ctrl+1-9 — switch to tab N
+  if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+    e.preventDefault();
+    const idx = parseInt(e.key) - 1;
+    if (idx < store.tabs.length) {
+      store.activeTabIndex = idx;
+      store.focusedIndex = -1; store.searchQuery = '';
       renderTabBar(); renderToolbar(); renderSidebar(); loadCurrentDir();
     }
     return;
@@ -190,11 +315,56 @@ function handleKeydown(e) {
     return;
   }
 
+  // Ctrl+Shift+C — copy path
+  if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+    e.preventDefault();
+    const tab = getActiveTab();
+    if (tab && tab.selectedFiles.length > 0) {
+      ipc.writeClipboard(tab.selectedFiles.join('\n'));
+      showToast('\u30D1\u30B9\u3092\u30B3\u30D4\u30FC', 'info', 1500);
+    }
+    return;
+  }
+
+  // Ctrl+Shift+N — new folder
+  if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+    e.preventDefault();
+    const tab = getActiveTab();
+    if (!tab) return;
+    const name = prompt('\u30D5\u30A9\u30EB\u30C0\u540D:');
+    if (name) ipc.createFolder(tab.path, name).then(() => loadCurrentDir());
+    return;
+  }
+
   // Ctrl+H — toggle hidden
   if (e.ctrlKey && e.key === 'h') {
     e.preventDefault();
     store.showHidden = !store.showHidden;
-    loadCurrentDir();
+    renderToolbar(); loadCurrentDir();
+    return;
+  }
+
+  // Ctrl+B — toggle sidebar
+  if (e.ctrlKey && e.key === 'b') {
+    e.preventDefault();
+    store.showSidebar = !store.showSidebar;
+    renderSidebar();
+    return;
+  }
+
+  // Ctrl+Shift+P — toggle preview
+  if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+    e.preventDefault();
+    store.showPreview = !store.showPreview;
+    renderToolbar(); renderPreviewPanel();
+    return;
+  }
+
+  // Ctrl+Shift+D — toggle dual pane
+  if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+    e.preventDefault();
+    store.showDualPane = !store.showDualPane;
+    renderToolbar(); renderDualPane();
     return;
   }
 
@@ -206,17 +376,28 @@ function handleKeydown(e) {
     return;
   }
 
-  // F2 — rename
+  // F2 — inline rename
   if (e.key === 'F2') {
     e.preventDefault();
     const tab = getActiveTab();
     if (tab && tab.selectedFiles.length === 1) {
       const f = _currentFiles.find(f => f.path === tab.selectedFiles[0]);
-      if (f) {
-        const name = prompt('\u65B0\u3057\u3044\u540D\u524D:', f.name);
-        if (name && name !== f.name) ipc.renameFile(f.path, name).then(() => loadCurrentDir());
-      }
+      if (f) startInlineRename(f);
     }
+    return;
+  }
+
+  // F5 — refresh
+  if (e.key === 'F5' && !e.ctrlKey) {
+    e.preventDefault();
+    loadCurrentDir();
+    return;
+  }
+
+  // F11 — fullscreen
+  if (e.key === 'F11') {
+    e.preventDefault();
+    // Electron fullscreen toggle is in main process; skip for now
     return;
   }
 
@@ -254,7 +435,7 @@ function handleKeydown(e) {
     return;
   }
 
-  // Arrow keys — DOM direct update (no renderFileList)
+  // Arrow keys — DOM direct update
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     const files = getCurrentFiles();
@@ -268,7 +449,8 @@ function handleKeydown(e) {
     if (tab) tab.selectedFiles = [files[store.focusedIndex].path];
     _updateSelectionDOM(tab);
     renderStatusBar();
-    const focused = document.querySelector('.fl-row.focused');
+    updatePreviewIfNeeded();
+    const focused = document.querySelector('.fl-row.focused, .fg-item.focused');
     if (focused) focused.scrollIntoView({ block: 'nearest' });
     return;
   }
@@ -285,7 +467,7 @@ function handleKeydown(e) {
     return;
   }
 
-  // Ctrl+A — select all (DOM direct update)
+  // Ctrl+A — select all
   if (e.ctrlKey && e.key === 'a') {
     e.preventDefault();
     const tab = getActiveTab();
@@ -293,6 +475,23 @@ function handleKeydown(e) {
       tab.selectedFiles = getCurrentFiles().map(f => f.path);
       _updateSelectionDOM(tab);
       renderStatusBar();
+    }
+    return;
+  }
+
+  // Space — toggle selection without moving
+  if (e.key === ' ') {
+    e.preventDefault();
+    const files = getCurrentFiles();
+    const tab = getActiveTab();
+    if (tab && store.focusedIndex >= 0 && files[store.focusedIndex]) {
+      const p = files[store.focusedIndex].path;
+      const idx = tab.selectedFiles.indexOf(p);
+      if (idx >= 0) tab.selectedFiles.splice(idx, 1);
+      else tab.selectedFiles.push(p);
+      _updateSelectionDOM(tab);
+      renderStatusBar();
+      updatePreviewIfNeeded();
     }
     return;
   }
@@ -356,6 +555,11 @@ function applyThemeCSS(theme) {
     set('--font-size', theme.font.sizeBase);
     set('--font-size-sm', theme.font.sizeSm);
     set('--font-mono', theme.font.monoFamily);
+  }
+  if (theme.preview) {
+    set('--preview-width', theme.preview.width);
+    set('--preview-bg', theme.preview.background);
+    set('--preview-border', theme.preview.borderColor);
   }
 }
 

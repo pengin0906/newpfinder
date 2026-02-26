@@ -20,7 +20,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createFolder:     (dir, name) => ipcRenderer.invoke('createFolder', dir, name),
   createFile:       (dir, name) => ipcRenderer.invoke('createFile', dir, name),
   openFile:         (path) => ipcRenderer.invoke('openFile', path),
+  readTextFile:     (path, maxLines) => ipcRenderer.invoke('readTextFile', path, maxLines),
   getDiskUsage:     (dir) => ipcRenderer.invoke('getDiskUsage', dir),
+
+  // Archive
+  listArchive:      (path) => ipcRenderer.invoke('listArchive', path),
+  extractArchive:   (path, dest) => ipcRenderer.invoke('extractArchive', path, dest),
+  createArchive:    (srcs, dest, fmt) => ipcRenderer.invoke('createArchive', srcs, dest, fmt),
+  isArchive:        (path) => ipcRenderer.invoke('isArchive', path),
 
   // Git
   getGitInfo:       (dir) => ipcRenderer.invoke('getGitInfo', dir),
@@ -31,6 +38,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ID
   idStats:          () => ipcRenderer.invoke('idStats'),
+
+  // Bookmarks
+  getBookmarks:     () => ipcRenderer.invoke('getBookmarks'),
+  addBookmark:      (path, name) => ipcRenderer.invoke('addBookmark', path, name),
+  removeBookmark:   (path) => ipcRenderer.invoke('removeBookmark', path),
+  renameBookmark:   (path, name) => ipcRenderer.invoke('renameBookmark', path, name),
 
   // Watcher
   watchDir:         (dir) => ipcRenderer.invoke('watchDir', dir),

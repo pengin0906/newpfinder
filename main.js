@@ -9,6 +9,7 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const config = require('./src/main/services/config-service');
 const idService = require('./src/main/services/id-service');
+const bookmarkService = require('./src/main/services/bookmark-service');
 const watcher = require('./src/main/services/watcher-service');
 const ipcHandlers = require('./src/main/ipc/handlers');
 
@@ -57,7 +58,10 @@ app.whenReady().then(() => {
   // 2. Init pforce-longid with categories
   idService.init();
 
-  // 3. Create window
+  // 3. Load bookmarks
+  bookmarkService.load();
+
+  // 4. Create window
   createWindow();
 
   // 4. Register IPC handlers
