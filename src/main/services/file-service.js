@@ -1,8 +1,10 @@
 /**
- * file-service.js — Filesystem operations with pforce-longid integration
+ * file-service.js — Filesystem operations with pforce-longid + KVS cache
  *
- * Every file entry returned includes a BigInt ID (as hex string for IPC).
- * Category is determined at read time from extension → YAML mapping.
+ * Performance:
+ * - KVS cache (2s TTL, invalidated by watcher)
+ * - Parallel stat() via Promise.all (not sequential await)
+ * - ID assignment is O(1) Map lookup
  */
 
 'use strict';
@@ -13,35 +15,37 @@ const path = require('path');
 const { exec } = require('child_process');
 const idService = require('./id-service');
 const config = require('./config-service');
+const kvs = require('./kvs');
+
+const DIR_CACHE_TTL = 2000; // 2s — watcher invalidates on change
 
 /**
  * Read a directory and return entries with pforce IDs.
- * @param {string} dirPath  Absolute directory path
- * @param {boolean} showHidden  Include dotfiles
- * @returns {Promise<{ok: boolean, data?: Array, error?: string}>}
+ * KVS cached + parallel stat().
  */
 async function readDir(dirPath, showHidden = false) {
+  const cacheKey = `dir:${dirPath}:${showHidden ? 1 : 0}`;
+  const cached = kvs.get(cacheKey);
+  if (cached) return { ok: true, data: cached };
+
   try {
     const entries = await fsp.readdir(dirPath, { withFileTypes: true });
-    const result = [];
+    const visible = entries.filter(e => showHidden || !e.name.startsWith('.'));
 
-    for (const entry of entries) {
-      if (!showHidden && entry.name.startsWith('.')) continue;
+    // Parallel stat — ALL at once, not one-by-one
+    const statResults = await Promise.all(
+      visible.map(e => fsp.stat(path.join(dirPath, e.name)).catch(() => null))
+    );
 
+    const result = visible.map((entry, i) => {
       const fullPath = path.join(dirPath, entry.name);
       const ext = path.extname(entry.name).toLowerCase();
       const isDir = entry.isDirectory();
       const isSymlink = entry.isSymbolicLink();
-
-      // Assign pforce-longid
       const id = idService.idFor(fullPath, ext, isDir, isSymlink);
+      const stat = statResults[i];
 
-      let stat = null;
-      try {
-        stat = await fsp.stat(fullPath);
-      } catch {}
-
-      result.push({
+      return {
         id: idService.toHex(id),
         name: entry.name,
         path: fullPath,
@@ -53,9 +57,10 @@ async function readDir(dirPath, showHidden = false) {
         ext,
         category: idService.categoryOf(id),
         categoryColor: config.categoryColor(idService.categoryOf(id)),
-      });
-    }
+      };
+    });
 
+    kvs.set(cacheKey, result, DIR_CACHE_TTL);
     return { ok: true, data: result };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -113,6 +118,7 @@ async function copyFiles(srcPaths, destDir) {
       results.push({ src, dest, ok: false, error: e.message });
     }
   }
+  kvs.invalidateDir(destDir);
   return { ok: true, data: results };
 }
 
@@ -122,6 +128,7 @@ async function copyFiles(srcPaths, destDir) {
 async function moveFiles(srcPaths, destDir) {
   const results = [];
   for (const src of srcPaths) {
+    const srcDir = path.dirname(src);
     const dest = path.join(destDir, path.basename(src));
     try {
       await fsp.rename(src, dest);
@@ -130,7 +137,9 @@ async function moveFiles(srcPaths, destDir) {
     } catch (e) {
       results.push({ src, dest, ok: false, error: e.message });
     }
+    kvs.invalidateDir(srcDir);
   }
+  kvs.invalidateDir(destDir);
   return { ok: true, data: results };
 }
 
@@ -139,7 +148,9 @@ async function moveFiles(srcPaths, destDir) {
  */
 async function trashFiles(filePaths) {
   const results = [];
+  const dirs = new Set();
   for (const fp of filePaths) {
+    dirs.add(path.dirname(fp));
     try {
       await new Promise((resolve, reject) => {
         exec(`gio trash "${fp}"`, (err) => {
@@ -158,6 +169,7 @@ async function trashFiles(filePaths) {
       }
     }
   }
+  for (const d of dirs) kvs.invalidateDir(d);
   return { ok: true, data: results };
 }
 
@@ -170,6 +182,7 @@ async function renameFile(oldPath, newName) {
   try {
     await fsp.rename(oldPath, newPath);
     idService.rename(oldPath, newPath);
+    kvs.invalidateDir(dir);
     return { ok: true, data: { oldPath, newPath } };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -183,6 +196,7 @@ async function createFolder(dirPath, name) {
   const fullPath = path.join(dirPath, name);
   try {
     await fsp.mkdir(fullPath);
+    kvs.invalidateDir(dirPath);
     return { ok: true, data: { path: fullPath } };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -196,6 +210,7 @@ async function createFile(dirPath, name) {
   const fullPath = path.join(dirPath, name);
   try {
     await fsp.writeFile(fullPath, '', 'utf8');
+    kvs.invalidateDir(dirPath);
     return { ok: true, data: { path: fullPath } };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -212,22 +227,28 @@ function openFile(filePath) {
 }
 
 /**
- * Get disk usage for a path.
+ * Get disk usage for a path (cached 10s).
  */
 async function getDiskUsage(dirPath) {
+  const cacheKey = `disk:${dirPath}`;
+  const cached = kvs.get(cacheKey);
+  if (cached) return cached;
+
   return new Promise((resolve) => {
     exec(`df -B1 "${dirPath}" 2>/dev/null | tail -1`, (err, stdout) => {
       if (err) return resolve({ ok: false });
       const parts = stdout.trim().split(/\s+/);
       if (parts.length >= 4) {
-        resolve({
+        const result = {
           ok: true,
           data: {
             total: parseInt(parts[1]) || 0,
             used: parseInt(parts[2]) || 0,
             free: parseInt(parts[3]) || 0,
           },
-        });
+        };
+        kvs.set(cacheKey, result, 10000);
+        resolve(result);
       } else {
         resolve({ ok: false });
       }
