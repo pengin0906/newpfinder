@@ -35,6 +35,12 @@ function createWindow() {
 
   mainWindow.loadFile('src/renderer/index.html');
 
+  // Forward renderer console to main process stdout
+  mainWindow.webContents.on('console-message', (_e, level, msg, line, sourceId) => {
+    const tag = ['LOG', 'WARN', 'ERR'][level] || 'LOG';
+    console.log(`[renderer:${tag}] ${msg}  (${sourceId}:${line})`);
+  });
+
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
