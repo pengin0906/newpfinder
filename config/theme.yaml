@@ -1,0 +1,106 @@
+# NewPfinder theme configuration
+# Edit this file to change look & feel — reloads live.
+
+theme:
+  name: "pforce-dark"
+
+  # Window
+  window:
+    minWidth: 1024
+    minHeight: 600
+    titleBarStyle: hidden
+
+  # Sidebar
+  sidebar:
+    width: 260
+    collapsedWidth: 48
+    background: "linear-gradient(180deg, #0d1b2a, #1b2838)"
+    brandColor: "#4fc3f7"
+    textColor: "rgba(255,255,255,0.75)"
+    activeColor: "#4fc3f7"
+    hoverBg: "rgba(255,255,255,0.06)"
+    sectionColor: "rgba(255,255,255,0.4)"
+
+  # Content area
+  content:
+    background: "#f4f6f9"
+    cardBg: "#ffffff"
+    cardBorder: "#e0e5ee"
+    cardRadius: 8
+
+  # Toolbar
+  toolbar:
+    height: 40
+    background: "#ffffff"
+    borderColor: "#e0e5ee"
+
+  # Tab bar
+  tabBar:
+    height: 36
+    activeBg: "#ffffff"
+    inactiveBg: "#e8ecf1"
+    textColor: "#333"
+    activeTextColor: "#0d1b2a"
+
+  # Status bar
+  statusBar:
+    height: 28
+    background: "#0d1b2a"
+    textColor: "rgba(255,255,255,0.7)"
+
+  # Accent colors
+  accent:
+    primary: "#0176d3"
+    success: "#2e7d32"
+    warning: "#e65100"
+    danger: "#c62828"
+    info: "#4fc3f7"
+
+  # File type colors (keyed by category name from categories.yaml)
+  categoryColors:
+    folder: "#f9a825"
+    document: "#0176d3"
+    pdf: "#c62828"
+    spreadsheet: "#2e7d32"
+    presentation: "#e65100"
+    image: "#7b1fa2"
+    video: "#c2185b"
+    audio: "#00838f"
+    font: "#5d4037"
+    code: "#2e7d32"
+    config: "#546e7a"
+    script: "#33691e"
+    data: "#1565c0"
+    archive: "#e65100"
+    executable: "#b71c1c"
+    other: "#757575"
+
+  # Git status indicators
+  git:
+    modified: "#e65100"
+    staged: "#2e7d32"
+    untracked: "#c62828"
+
+  # Font
+  font:
+    family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif"
+    sizeBase: 13
+    sizeSm: 11
+    sizeLg: 15
+    monoFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace"
+
+  # File list
+  fileList:
+    rowHeight: 32
+    iconSize: 20
+    gridIconSize: 64
+    selectedBg: "#e3f2fd"
+    selectedBorder: "#0176d3"
+    hoverBg: "#f5f5f5"
+    stripeBg: "rgba(0,0,0,0.02)"
+
+  # Preview panel
+  preview:
+    width: 280
+    background: "#ffffff"
+    borderColor: "#e0e5ee"

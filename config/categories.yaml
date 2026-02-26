@@ -1,0 +1,54 @@
+# NewPfinder file categories
+# Each category gets upper 8 bits of the 64-bit BigInt ID.
+# Edit this file to add/change categories — no code changes needed.
+
+categories:
+  folder:       0x01
+  symlink:      0x02
+  document:     0x10
+  pdf:          0x11
+  spreadsheet:  0x12
+  presentation: 0x13
+  image:        0x20
+  video:        0x21
+  audio:        0x22
+  font:         0x23
+  code:         0x30
+  config:       0x31
+  script:       0x32
+  data:         0x40
+  database:     0x41
+  log:          0x42
+  archive:      0x50
+  executable:   0x60
+  other:        0xFF
+
+# Extension → category mapping
+extensions:
+  # Documents
+  document: [.txt, .doc, .docx, .odt, .rtf, .pages, .md, .markdown, .tex, .epub]
+  pdf: [.pdf]
+  spreadsheet: [.xls, .xlsx, .csv, .ods, .numbers, .tsv]
+  presentation: [.ppt, .pptx, .odp, .key]
+
+  # Media
+  image: [.jpg, .jpeg, .png, .gif, .bmp, .svg, .webp, .ico, .tiff, .tif, .raw, .heic, .avif]
+  video: [.mp4, .mkv, .avi, .mov, .wmv, .flv, .webm, .m4v, .mpg, .mpeg, .3gp]
+  audio: [.mp3, .wav, .flac, .aac, .ogg, .wma, .m4a, .opus, .aiff, .mid, .midi]
+  font: [.ttf, .otf, .woff, .woff2, .eot]
+
+  # Code
+  code: [.js, .jsx, .ts, .tsx, .py, .rb, .go, .rs, .java, .c, .cpp, .h, .hpp, .cs, .swift, .kt, .lua, .r, .php, .vue, .svelte]
+  config: [.json, .yaml, .yml, .toml, .ini, .env, .xml, .plist]
+  script: [.sh, .bash, .zsh, .fish, .ps1, .bat, .cmd]
+
+  # Data
+  data: [.sql, .sqlite, .db, .jsonl, .ndjson, .parquet, .arrow]
+  database: [.mdb, .accdb]
+  log: [.log]
+
+  # Archives
+  archive: [.zip, .tar, .gz, .bz2, .xz, .7z, .rar, .tgz, .tar.gz, .tar.bz2, .tar.xz, .dmg, .iso]
+
+  # Executables
+  executable: [.exe, .msi, .app, .deb, .rpm, .AppImage, .snap, .flatpak]
