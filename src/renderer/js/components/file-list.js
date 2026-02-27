@@ -25,9 +25,9 @@ function renderFileList() {
   let html = `<div class="fl-header">
     <div class="fl-col fl-col-icon"></div>
     <div class="fl-col fl-col-name fl-sortable" data-sort="name">\u540D\u524D${_sortArrow('name', tab)}</div>
-    <div class="fl-col fl-col-cat fl-sortable" data-sort="category">\u30AB\u30C6\u30B4\u30EA${_sortArrow('category', tab)}</div>
+    <div class="fl-col fl-col-date fl-sortable" data-sort="modified">\u66F4\u65B0\u65E5\u6642${_sortArrow('modified', tab)}</div>
+    <div class="fl-col fl-col-cat fl-sortable" data-sort="category">\u7A2E\u985E${_sortArrow('category', tab)}</div>
     <div class="fl-col fl-col-size fl-sortable" data-sort="size">\u30B5\u30A4\u30BA${_sortArrow('size', tab)}</div>
-    <div class="fl-col fl-col-date fl-sortable" data-sort="modified">\u66F4\u65B0\u65E5${_sortArrow('modified', tab)}</div>
     <div class="fl-col fl-col-id">ID</div>
   </div>`;
 
@@ -45,9 +45,9 @@ function renderFileList() {
     html += `<div class="fl-row${sel}${focused}${cut}${gitClass}" data-index="${i}" data-path="${escapeHtml(f.path)}" draggable="true">
       <div class="fl-col fl-col-icon">${getFileIcon(f)}</div>
       <div class="fl-col fl-col-name" data-name="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
+      <div class="fl-col fl-col-date">${formatDate(f.modified)}</div>
       <div class="fl-col fl-col-cat">${catBadge}</div>
       <div class="fl-col fl-col-size">${f.isDirectory ? '--' : formatSize(f.size)}</div>
-      <div class="fl-col fl-col-date">${formatDate(f.modified)}</div>
       <div class="fl-col fl-col-id"><span class="id-badge">${shortId}</span></div>
     </div>`;
   }

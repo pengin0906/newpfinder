@@ -6,19 +6,15 @@
 'use strict';
 
 async function init() {
-  // Load theme
-  const themeResult = await ipc.getTheme();
-  if (themeResult.ok) {
-    store.theme = themeResult.data;
-    applyThemeCSS(store.theme);
-  }
+  // Parallel IPC: load theme, categories, bookmarks simultaneously
+  const [themeResult, catResult, bmResult] = await Promise.all([
+    ipc.getTheme(),
+    ipc.getCategories(),
+    ipc.getBookmarks(),
+  ]);
 
-  // Load categories
-  const catResult = await ipc.getCategories();
+  if (themeResult.ok) { store.theme = themeResult.data; applyThemeCSS(store.theme); }
   if (catResult.ok) store.categories = catResult.data;
-
-  // Load bookmarks
-  const bmResult = await ipc.getBookmarks();
   if (bmResult.ok) store.bookmarks = bmResult.data;
 
   // Create initial tab
@@ -32,11 +28,11 @@ async function init() {
   renderStatusBar();
   renderPreviewPanel();
 
-  // Expand tree to initial directory
-  await expandTreeToPath(home);
-
-  // Load directory
-  await loadCurrentDir();
+  // Expand tree + load dir in parallel
+  await Promise.all([
+    expandTreeToPath(home),
+    loadCurrentDir(),
+  ]);
 
   // Watch for filesystem changes
   ipc.onFsChanged(() => {
@@ -97,7 +93,8 @@ function navigateTo(dirPath) {
 
   renderToolbar();
   renderTabBar();
-  renderSidebar();
+  // Light update: just toggle active classes + update tree (no full sidebar rebuild)
+  _updateSidebarActive();
   expandTreeToPath(dirPath);
   loadCurrentDir();
 }
@@ -110,7 +107,8 @@ function navigateBack() {
   tab.selectedFiles = [];
   store.focusedIndex = -1;
   store.searchQuery = '';
-  renderToolbar(); renderTabBar(); renderSidebar();
+  renderToolbar(); renderTabBar();
+  _updateSidebarActive();
   expandTreeToPath(tab.path);
   loadCurrentDir();
 }
@@ -123,9 +121,23 @@ function navigateForward() {
   tab.selectedFiles = [];
   store.focusedIndex = -1;
   store.searchQuery = '';
-  renderToolbar(); renderTabBar(); renderSidebar();
+  renderToolbar(); renderTabBar();
+  _updateSidebarActive();
   expandTreeToPath(tab.path);
   loadCurrentDir();
+}
+
+/**
+ * Fast sidebar active-state update (no innerHTML rebuild).
+ * Just toggles .active class on sidebar-items.
+ */
+function _updateSidebarActive() {
+  const tab = getActiveTab();
+  const currentPath = tab ? tab.path : '';
+  const items = document.querySelectorAll('#sidebar .sidebar-item[data-path]');
+  for (const item of items) {
+    item.classList.toggle('active', item.dataset.path === currentPath);
+  }
 }
 
 function navigateUp() {
@@ -407,7 +419,6 @@ function handleKeydown(e) {
   // F11 — fullscreen
   if (e.key === 'F11') {
     e.preventDefault();
-    // Electron fullscreen toggle is in main process; skip for now
     return;
   }
 

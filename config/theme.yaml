@@ -1,8 +1,8 @@
-# NewPfinder theme configuration
+# NewPfinder theme configuration — Windows Explorer style
 # Edit this file to change look & feel — reloads live.
 
 theme:
-  name: "pforce-dark"
+  name: "explorer-light"
 
   # Window
   window:
@@ -10,97 +10,97 @@ theme:
     minHeight: 600
     titleBarStyle: hidden
 
-  # Sidebar
+  # Sidebar (Explorer Navigation Pane)
   sidebar:
-    width: 260
+    width: 240
     collapsedWidth: 48
-    background: "linear-gradient(180deg, #0d1b2a, #1b2838)"
-    brandColor: "#4fc3f7"
-    textColor: "rgba(255,255,255,0.75)"
-    activeColor: "#4fc3f7"
-    hoverBg: "rgba(255,255,255,0.06)"
-    sectionColor: "rgba(255,255,255,0.4)"
+    background: "#ffffff"
+    brandColor: "#0078d4"
+    textColor: "#1a1a1a"
+    activeColor: "#0078d4"
+    hoverBg: "rgba(0,0,0,0.04)"
+    sectionColor: "#666666"
 
   # Content area
   content:
-    background: "#f4f6f9"
+    background: "#ffffff"
     cardBg: "#ffffff"
-    cardBorder: "#e0e5ee"
-    cardRadius: 8
+    cardBorder: "#e5e5e5"
+    cardRadius: 4
 
-  # Toolbar
+  # Toolbar (Explorer Command Bar)
   toolbar:
     height: 40
-    background: "#ffffff"
-    borderColor: "#e0e5ee"
+    background: "#f3f3f3"
+    borderColor: "#e5e5e5"
 
   # Tab bar
   tabBar:
-    height: 36
+    height: 34
     activeBg: "#ffffff"
-    inactiveBg: "#e8ecf1"
-    textColor: "#333"
-    activeTextColor: "#0d1b2a"
+    inactiveBg: "#f0f0f0"
+    textColor: "#666"
+    activeTextColor: "#1a1a1a"
 
-  # Status bar
+  # Status bar (Explorer-style light)
   statusBar:
-    height: 28
-    background: "#0d1b2a"
-    textColor: "rgba(255,255,255,0.7)"
+    height: 24
+    background: "#f0f0f0"
+    textColor: "#444444"
 
-  # Accent colors
+  # Accent colors (Windows 11 palette)
   accent:
-    primary: "#0176d3"
-    success: "#2e7d32"
-    warning: "#e65100"
-    danger: "#c62828"
-    info: "#4fc3f7"
+    primary: "#0078d4"
+    success: "#107c10"
+    warning: "#d83b01"
+    danger: "#c50f1f"
+    info: "#0078d4"
 
-  # File type colors (keyed by category name from categories.yaml)
+  # File type colors
   categoryColors:
-    folder: "#f9a825"
-    document: "#0176d3"
-    pdf: "#c62828"
-    spreadsheet: "#2e7d32"
-    presentation: "#e65100"
-    image: "#7b1fa2"
-    video: "#c2185b"
-    audio: "#00838f"
+    folder: "#dcb67a"
+    document: "#0078d4"
+    pdf: "#c50f1f"
+    spreadsheet: "#107c10"
+    presentation: "#d83b01"
+    image: "#881798"
+    video: "#c30052"
+    audio: "#008272"
     font: "#5d4037"
-    code: "#2e7d32"
+    code: "#107c10"
     config: "#546e7a"
-    script: "#33691e"
-    data: "#1565c0"
-    archive: "#e65100"
-    executable: "#b71c1c"
-    other: "#757575"
+    script: "#107c10"
+    data: "#0063b1"
+    archive: "#d83b01"
+    executable: "#c50f1f"
+    other: "#767676"
 
   # Git status indicators
   git:
-    modified: "#e65100"
-    staged: "#2e7d32"
-    untracked: "#c62828"
+    modified: "#d83b01"
+    staged: "#107c10"
+    untracked: "#c50f1f"
 
   # Font
   font:
-    family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', sans-serif"
-    sizeBase: 13
+    family: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans JP', 'Yu Gothic UI', sans-serif"
+    sizeBase: 12
     sizeSm: 11
-    sizeLg: 15
-    monoFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace"
+    sizeLg: 14
+    monoFamily: "'Cascadia Code', 'Consolas', 'SF Mono', monospace"
 
   # File list
   fileList:
-    rowHeight: 32
-    iconSize: 20
-    gridIconSize: 64
-    selectedBg: "#e3f2fd"
-    selectedBorder: "#0176d3"
-    hoverBg: "#f5f5f5"
-    stripeBg: "rgba(0,0,0,0.02)"
+    rowHeight: 28
+    iconSize: 18
+    gridIconSize: 48
+    selectedBg: "#cce8ff"
+    selectedBorder: "#99d1ff"
+    hoverBg: "#e5f3ff"
+    stripeBg: "rgba(0,0,0,0.01)"
 
   # Preview panel
   preview:
     width: 280
     background: "#ffffff"
-    borderColor: "#e0e5ee"
+    borderColor: "#e5e5e5"

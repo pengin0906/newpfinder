@@ -23,22 +23,22 @@ function renderToolbar() {
   const canForward = tab.historyIndex < tab.history.length - 1;
   const parts = tab.path.split('/').filter(Boolean);
 
-  let breadcrumbs = `<span class="breadcrumb-item" data-path="/">/</span>`;
+  let breadcrumbs = `<span class="breadcrumb-item" data-path="/">PC</span>`;
   let cumPath = '';
   for (const part of parts) {
     cumPath += '/' + part;
-    breadcrumbs += `<span class="breadcrumb-sep">/</span><span class="breadcrumb-item" data-path="${escapeHtml(cumPath)}">${escapeHtml(part)}</span>`;
+    breadcrumbs += `<span class="breadcrumb-sep">&#xe0;</span><span class="breadcrumb-item" data-path="${escapeHtml(cumPath)}">${escapeHtml(part)}</span>`;
   }
 
   tb.innerHTML = `
     <div class="toolbar-nav">
-      <button class="tb-btn${canBack ? '' : ' disabled'}" data-action="back" title="\u623B\u308B">\u25C0</button>
-      <button class="tb-btn${canForward ? '' : ' disabled'}" data-action="forward" title="\u9032\u3080">\u25B6</button>
-      <button class="tb-btn" data-action="up" title="\u89AA\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA">\u25B2</button>
+      <button class="tb-btn tb-nav${canBack ? '' : ' disabled'}" data-action="back" title="\u623B\u308B">\u2190</button>
+      <button class="tb-btn tb-nav${canForward ? '' : ' disabled'}" data-action="forward" title="\u9032\u3080">\u2192</button>
+      <button class="tb-btn tb-nav" data-action="up" title="\u89AA\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA">\u2191</button>
     </div>
-    <div class="toolbar-breadcrumbs">${breadcrumbs}</div>
+    <div class="toolbar-address">${breadcrumbs}</div>
     <div class="toolbar-search">
-      <input type="text" id="search-input" placeholder="\uD83D\uDD0D \u691C\u7D22..." value="${escapeHtml(store.searchQuery)}">
+      <input type="text" id="search-input" placeholder="\u691C\u7D22" value="${escapeHtml(store.searchQuery)}">
     </div>
     <div class="toolbar-actions">
       <button class="tb-btn${store.showHidden ? ' active' : ''}" data-action="hidden" title="\u96A0\u3057\u30D5\u30A1\u30A4\u30EB">H</button>

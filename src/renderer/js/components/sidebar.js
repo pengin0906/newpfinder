@@ -35,12 +35,9 @@ function renderSidebar() {
   const tab = getActiveTab();
   const currentPath = tab ? tab.path : '';
 
-  let html = `<div class="sidebar-brand">
-    <span class="brand-icon">P</span>
-    <span class="brand-text">NewPfinder</span>
-  </div>`;
+  let html = '';
 
-  // === Tree section (main area) ===
+  // === Tree section (main area — Explorer-style, no brand) ===
   html += `<div id="tree-view" class="sidebar-tree"></div>`;
 
   // === Divider ===
